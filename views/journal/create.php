@@ -11,7 +11,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // Redirect if not logged in
 if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
+    header("Location: ../../index.php?page=login");
     exit;
 }
 
@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Verify CSRF token
     if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) {
         $_SESSION['error'] = "Invalid form submission";
-        header("Location: create.php");
+        header("Location: ../../index.php?page=journal&action=create");
         exit;
     }
 
@@ -54,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($entryId) {
             $_SESSION['success'] = "Entry created successfully!";
-            header("Location: view.php?id=$entryId");
+            header("Location: ../../index.php?page=journal&action=view&id=$entryId");
             exit;
         } else {
             $_SESSION['error'] = "Failed to create entry";
@@ -126,7 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="form-actions" style="display:flex; justify-content:space-between; align-items:center; margin-top:1.5rem;">
                 <button type="submit" class="btn btn-primary">Save Entry</button>
-                <a href="list.php" class="btn btn-link" style="margin-left:1em;">Cancel</a>
+                <a href="/journalms/index.php?page=journal&action=list" class="btn btn-link" style="margin-left:1em;">Cancel</a>
             </div>
         </div>
     </form>
@@ -161,4 +161,3 @@ moodLabels.forEach(label => {
 });
 </script>
 
-<?php include __DIR__ . '/../partials/footer.php'; ?>

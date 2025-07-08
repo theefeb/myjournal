@@ -21,9 +21,8 @@ class JournalController {
             $mood = isset($_POST['mood']) ? (int)$_POST['mood'] : null;
 
             if (empty($title) || empty($content)) {
-                $_SESSION['message'] = 'Title and content are required';
-                $_SESSION['message_type'] = 'error';
-                header("Location: index.php?page=journal&action=create");
+                $_SESSION['error'] = 'Title and content are required';
+                header("Location: ../../index.php?page=journal&action=create");
                 exit;
             }
 
@@ -38,20 +37,18 @@ class JournalController {
             );
 
             if ($entry_id) {
-                $_SESSION['message'] = 'Entry created successfully!';
-                $_SESSION['message_type'] = 'success';
-                header("Location: index.php?page=journal&action=edit&id=$entry_id");
+                $_SESSION['success'] = 'Entry created successfully!';
+                header("Location: ../../index.php?page=journal&action=view&id=$entry_id");
                 exit;
             } else {
-                $_SESSION['message'] = 'Failed to create entry';
-                $_SESSION['message_type'] = 'error';
-                header("Location: index.php?page=journal&action=create");
+                $_SESSION['error'] = 'Failed to create entry';
+                header("Location: ../../index.php?page=journal&action=create");
                 exit;
             }
         }
 
         // Display create form
-        require_once 'views/journal/create.php';
+        require_once __DIR__ . '/../views/journal/create.php';
     }
 
     /**
@@ -61,13 +58,12 @@ class JournalController {
         $entry = $this->journalEntry->getById($entry_id, $this->user_id);
 
         if (!$entry) {
-            $_SESSION['message'] = 'Entry not found';
-            $_SESSION['message_type'] = 'error';
-            header("Location: index.php?page=journal&action=list");
+            $_SESSION['error'] = 'Entry not found';
+            header("Location: ../../index.php?page=journal&action=list");
             exit;
         }
 
-        require_once 'views/journal/view.php';
+        require_once __DIR__ . '/../views/journal/view.php';
     }
 
     /**
@@ -87,7 +83,7 @@ class JournalController {
         $total_entries = $this->journalEntry->getCount($this->user_id);
         $total_pages = ceil($total_entries / $filters['limit']);
 
-        require_once 'views/journal/list.php';
+        require_once __DIR__ . '/../views/journal/list.php';
     }
 
     /**
@@ -97,9 +93,8 @@ class JournalController {
         $entry = $this->journalEntry->getById($entry_id, $this->user_id);
 
         if (!$entry) {
-            $_SESSION['message'] = 'Entry not found';
-            $_SESSION['message_type'] = 'error';
-            header("Location: index.php?page=journal&action=list");
+            $_SESSION['error'] = 'Entry not found';
+            header("Location: ../../index.php?page=journal&action=list");
             exit;
         }
 
@@ -110,9 +105,8 @@ class JournalController {
             $mood = isset($_POST['mood']) ? (int)$_POST['mood'] : null;
 
             if (empty($title) || empty($content)) {
-                $_SESSION['message'] = 'Title and content are required';
-                $_SESSION['message_type'] = 'error';
-                header("Location: index.php?page=journal&action=edit&id=$entry_id");
+                $_SESSION['error'] = 'Title and content are required';
+                header("Location: ../../index.php?page=journal&action=edit&id=$entry_id");
                 exit;
             }
 
@@ -126,19 +120,17 @@ class JournalController {
             );
 
             if ($success) {
-                $_SESSION['message'] = 'Entry updated successfully!';
-                $_SESSION['message_type'] = 'success';
-                header("Location: index.php?page=journal&action=edit&id=$entry_id");
+                $_SESSION['success'] = 'Entry updated successfully!';
+                header("Location: ../../index.php?page=journal&action=view&id=$entry_id");
                 exit;
             } else {
-                $_SESSION['message'] = 'Failed to update entry';
-                $_SESSION['message_type'] = 'error';
-                header("Location: index.php?page=journal&action=edit&id=$entry_id");
+                $_SESSION['error'] = 'Failed to update entry';
+                header("Location: ../../index.php?page=journal&action=edit&id=$entry_id");
                 exit;
             }
         }
 
-        require_once 'views/journal/edit.php';
+        require_once __DIR__ . '/../views/journal/edit.php';
     }
 
     /**
@@ -146,30 +138,51 @@ class JournalController {
      */
     public function delete($entry_id) {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $success = $this->journalEntry->delete($entry_id, $this->user_id);
-
-            if ($success) {
-                $_SESSION['message'] = 'Entry deleted successfully';
-                $_SESSION['message_type'] = 'success';
-            } else {
-                $_SESSION['message'] = 'Failed to delete entry';
-                $_SESSION['message_type'] = 'error';
+            $isAjax = isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+            // Debug: Log the deletion attempt
+            error_log("Delete attempt - Entry ID: $entry_id, User ID: {$this->user_id}");
+            // Verify CSRF token
+            if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) {
+                error_log("CSRF token validation failed for entry deletion");
+                if ($isAjax) {
+                    header('Content-Type: application/json');
+                    echo json_encode(['success' => false, 'error' => 'Invalid form submission']);
+                    exit;
+                } else {
+                    $_SESSION['error'] = "Invalid form submission";
+                    header("Location: ../../index.php?page=journal&action=list");
+                    exit;
+                }
             }
-
-            header("Location: index.php?page=journal&action=list");
-            exit;
+            $success = $this->journalEntry->delete($entry_id, $this->user_id);
+            // Debug: Log the result
+            error_log("Delete result - Success: " . ($success ? 'true' : 'false'));
+            if ($isAjax) {
+                header('Content-Type: application/json');
+                if ($success) {
+                    echo json_encode(['success' => true]);
+                } else {
+                    echo json_encode(['success' => false, 'error' => 'Failed to delete entry']);
+                }
+                exit;
+            } else {
+                if ($success) {
+                    $_SESSION['success'] = "Entry deleted successfully";
+                } else {
+                    $_SESSION['error'] = "Failed to delete entry";
+                }
+                header("Location: ../../index.php?page=journal&action=list");
+                exit;
+            }
         }
-
         // If not POST request, show confirmation view
         $entry = $this->journalEntry->getById($entry_id, $this->user_id);
         if (!$entry) {
-            $_SESSION['message'] = 'Entry not found';
-            $_SESSION['message_type'] = 'error';
-            header("Location: index.php?page=journal&action=list");
+            $_SESSION['error'] = "Entry not found";
+            header("Location: ../../index.php?page=journal&action=list");
             exit;
         }
-
-        require_once 'views/journal/delete.php';
+        require_once __DIR__ . '/../views/journal/delete.php';
     }
 
     /**

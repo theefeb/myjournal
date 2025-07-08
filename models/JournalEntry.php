@@ -200,19 +200,37 @@ public function getPopularTags(int $userId, int $limit = 5): array
      */
     public function delete($entry_id, $user_id) {
         try {
+            // Debug: Check if entry exists first
+            $check_stmt = $this->pdo->prepare(
+                "SELECT id FROM journal_entries WHERE id = ? AND user_id = ?"
+            );
+            $check_stmt->execute([$entry_id, $user_id]);
+            $exists = $check_stmt->fetch();
+            
+            if (!$exists) {
+                error_log("Delete failed: Entry $entry_id not found for user $user_id");
+                return false;
+            }
+            
+            error_log("Delete proceeding: Entry $entry_id found for user $user_id");
+            
             $this->pdo->beginTransaction();
 
             // First delete tags association
             $this->removeAllTagsFromEntry($entry_id);
+            error_log("Tags removed for entry $entry_id");
 
             // Then delete the entry
             $stmt = $this->pdo->prepare(
                 "DELETE FROM journal_entries WHERE id = ? AND user_id = ?"
             );
             $stmt->execute([$entry_id, $user_id]);
+            $rows_affected = $stmt->rowCount();
+            
+            error_log("Delete query executed. Rows affected: $rows_affected");
 
             $this->pdo->commit();
-            return $stmt->rowCount() > 0;
+            return $rows_affected > 0;
         } catch (PDOException $e) {
             $this->pdo->rollBack();
             error_log("JournalEntry delete error: " . $e->getMessage());

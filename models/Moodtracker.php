@@ -163,4 +163,125 @@ class MoodTracker {
         $stmt->execute([$user_id]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
+
+    /**
+     * Get today's mood entry
+     */
+    public function getTodayMood($user_id) {
+        $stmt = $this->pdo->prepare(
+            "SELECT * FROM mood_entries 
+             WHERE user_id = ? AND DATE(created_at) = CURDATE()
+             ORDER BY created_at DESC LIMIT 1"
+        );
+        $stmt->execute([$user_id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Log a mood entry (alias for recordMood)
+     */
+    public function logMood($user_id, $mood, $notes = null, $entry_id = null) {
+        return $this->recordMood($user_id, $mood, $entry_id, $notes);
+    }
+
+    /**
+     * Get mood history with pagination
+     */
+    public function getMoodHistory($user_id, $period = 'month', $limit = 20, $offset = 0) {
+        $dateCondition = "";
+        $params = [$user_id];
+
+        switch ($period) {
+            case 'week':
+                $dateCondition = "AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+                break;
+            case 'month':
+                $dateCondition = "AND created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)";
+                break;
+            case 'year':
+                $dateCondition = "AND created_at >= DATE_SUB(NOW(), INTERVAL 1 YEAR)";
+                break;
+            default:
+                // All time
+                break;
+        }
+
+        $query = "SELECT * FROM mood_entries 
+                  WHERE user_id = ? $dateCondition
+                  ORDER BY created_at DESC 
+                  LIMIT ? OFFSET ?";
+
+        $params[] = $limit;
+        $params[] = $offset;
+
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Get mood count for pagination
+     */
+    public function getMoodCount($user_id, $period = 'month') {
+        $dateCondition = "";
+        $params = [$user_id];
+
+        switch ($period) {
+            case 'week':
+                $dateCondition = "AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+                break;
+            case 'month':
+                $dateCondition = "AND created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)";
+                break;
+            case 'year':
+                $dateCondition = "AND created_at >= DATE_SUB(NOW(), INTERVAL 1 YEAR)";
+                break;
+            default:
+                // All time
+                break;
+        }
+
+        $query = "SELECT COUNT(*) FROM mood_entries 
+                  WHERE user_id = ? $dateCondition";
+
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute($params);
+        return $stmt->fetchColumn();
+    }
+
+    /**
+     * Get mood trends for charts
+     */
+    public function getMoodTrends($user_id, $period = 'month') {
+        $dateCondition = "";
+        $params = [$user_id];
+
+        switch ($period) {
+            case 'week':
+                $dateCondition = "AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+                break;
+            case 'month':
+                $dateCondition = "AND created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)";
+                break;
+            case 'year':
+                $dateCondition = "AND created_at >= DATE_SUB(NOW(), INTERVAL 1 YEAR)";
+                break;
+            default:
+                // All time
+                break;
+        }
+
+        $query = "SELECT 
+                    DATE(created_at) as date,
+                    AVG(mood) as avg_mood,
+                    COUNT(*) as count
+                  FROM mood_entries 
+                  WHERE user_id = ? $dateCondition
+                  GROUP BY DATE(created_at)
+                  ORDER BY date";
+
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }

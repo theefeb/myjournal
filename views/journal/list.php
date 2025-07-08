@@ -9,7 +9,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // Redirect if not logged in
 if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
+    header("Location: ../../index.php?page=login");
     exit;
 }
 
@@ -32,6 +32,15 @@ $totalPages = max(1, ceil($totalEntries / $filters['limit'])); // Ensure at leas
 
 // Get all tags for filter dropdown
 $tags = $journalEntry->getAllTags($_SESSION['user_id']);
+
+// Function to get the correct base URL
+function getBaseUrl() {
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'];
+    $script = $_SERVER['SCRIPT_NAME'];
+    return $protocol . '://' . $host . $script;
+}
+$baseUrl = getBaseUrl();
 ?>
 
 <?php include __DIR__ . '/../partials/header.php'; ?>
@@ -71,7 +80,7 @@ $tags = $journalEntry->getAllTags($_SESSION['user_id']);
                 </div>
                 <div class="form-group" style="flex:0 0 auto; display:flex; gap:0.5em;">
                     <button type="submit" class="btn">Filter</button>
-                    <a href="list.php" class="btn btn-link">Reset</a>
+                    <a href="?page=journal&action=list" class="btn btn-link">Reset</a>
                 </div>
             </div>
         </form>
@@ -83,7 +92,7 @@ $tags = $journalEntry->getAllTags($_SESSION['user_id']);
             <?php foreach ($entries as $entry): ?>
                 <div class="entry-card">
                     <h2>
-                        <a href="view.php?id=<?= (int)$entry['id'] ?>">
+                        <a href="/journalms/index.php?page=journal&action=view&id=<?= (int)$entry['id'] ?>">
                             <?= htmlspecialchars($entry['title'], ENT_QUOTES) ?>
                         </a>
                     </h2>
@@ -97,7 +106,7 @@ $tags = $journalEntry->getAllTags($_SESSION['user_id']);
                     <?php if (!empty($entry['tags'])): ?>
                         <div class="entry-tags">
                             <?php foreach ($entry['tags'] as $tag): ?>
-                                <a href="list.php?tag=<?= urlencode($tag) ?>" class="tag">
+                                <a href="/journalms/index.php?page=journal&action=list&tag=<?= urlencode($tag) ?>" class="tag">
                                     <?= htmlspecialchars($tag, ENT_QUOTES) ?>
                                 </a>
                             <?php endforeach; ?>
@@ -109,19 +118,14 @@ $tags = $journalEntry->getAllTags($_SESSION['user_id']);
                     </div>
 
                     <div class="entry-actions">
-                        <a href="edit.php?id=<?= (int)$entry['id'] ?>" class="btn btn-small">Edit</a>
-                        <form method="POST" action="delete.php" class="inline-form">
-                            <input type="hidden" name="id" value="<?= (int)$entry['id'] ?>">
-                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token(), ENT_QUOTES) ?>">
-                            <button type="submit" class="btn btn-small btn-danger"
-                                    onclick="return confirm('Are you sure you want to delete this entry?')">Delete</button>
-                        </form>
+                        <a href="/journalms/index.php?page=journal&action=edit&id=<?= (int)$entry['id'] ?>" class="btn btn-small">Edit</a>
+                        <button onclick="deleteEntry(<?= (int)$entry['id'] ?>, this)" class="btn btn-small btn-danger" type="button">Delete</button>
                     </div>
                 </div>
             <?php endforeach; ?>
         <?php else: ?>
             <div class="card" style="padding:2rem; text-align:center; background:#fff; margin-top:2rem;">
-                <p class="no-entries" style="font-size:1.15em; color:#666;">No entries found.<br><a href="create.php" class="btn btn-link" style="margin-top:1em; display:inline-block;">Create your first entry!</a></p>
+                <p class="no-entries" style="font-size:1.15em; color:#666;">No entries found.<br><a href="/journalms/index.php?page=journal&action=create" class="btn btn-link" style="margin-top:1em; display:inline-block;">Create your first entry!</a></p>
             </div>
         <?php endif; ?>
     </div>
@@ -130,7 +134,7 @@ $tags = $journalEntry->getAllTags($_SESSION['user_id']);
     <?php if ($totalPages > 1): ?>
         <div class="pagination">
             <?php if ($filters['page'] > 1): ?>
-                <a href="?page=<?= $filters['page'] - 1 ?>&<?= http_build_query(array_slice($filters, 0, 4)) ?>">
+                <a href="/journalms/index.php?page=journal&action=list&page=<?= $filters['page'] - 1 ?>&<?= http_build_query(array_slice($filters, 0, 4)) ?>">
                     &laquo; Previous
                 </a>
             <?php endif; ?>
@@ -141,7 +145,7 @@ $tags = $journalEntry->getAllTags($_SESSION['user_id']);
             $end = min($totalPages, $filters['page'] + 2);
             if ($start > 1) echo '<span>...</span>';
             for ($i = $start; $i <= $end; $i++): ?>
-                <a href="?page=<?= $i ?>&<?= http_build_query(array_slice($filters, 0, 4)) ?>"
+                <a href="/journalms/index.php?page=journal&action=list&page=<?= $i ?>&<?= http_build_query(array_slice($filters, 0, 4)) ?>"
                    class="<?= $i == $filters['page'] ? 'active' : '' ?>">
                     <?= $i ?>
                 </a>
@@ -149,7 +153,7 @@ $tags = $journalEntry->getAllTags($_SESSION['user_id']);
             if ($end < $totalPages) echo '<span>...</span>';
             ?>
             <?php if ($filters['page'] < $totalPages): ?>
-                <a href="?page=<?= $filters['page'] + 1 ?>&<?= http_build_query(array_slice($filters, 0, 4)) ?>">
+                <a href="/journalms/index.php?page=journal&action=list&page=<?= $filters['page'] + 1 ?>&<?= http_build_query(array_slice($filters, 0, 4)) ?>">
                     Next &raquo;
                 </a>
             <?php endif; ?>
@@ -157,4 +161,33 @@ $tags = $journalEntry->getAllTags($_SESSION['user_id']);
     <?php endif; ?>
 </div>
 
-<?php include __DIR__ . '/../partials/footer.php'; ?>
+<script>
+function deleteEntry(entryId, btn) {
+    if (!confirm('Are you sure you want to delete this entry? This action cannot be undone.')) return;
+    btn.disabled = true;
+    const entryCard = btn.closest('.entry-card');
+    fetch(`/journalms/index.php?page=journal&action=delete&id=${entryId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        },
+        body: `csrf_token=<?= htmlspecialchars(generate_csrf_token(), ENT_QUOTES) ?>`
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            entryCard.remove();
+        } else {
+            alert(data.error || 'Failed to delete entry.');
+            btn.disabled = false;
+        }
+    })
+    .catch(() => {
+        alert('Failed to delete entry.');
+        btn.disabled = false;
+    });
+}
+</script>
+

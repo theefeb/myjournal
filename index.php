@@ -92,6 +92,9 @@ switch ($page) {
         $action = $_GET['action'] ?? 'list';
         $entryId = $_GET['id'] ?? null;
 
+        // Debug logging
+        error_log("Journal routing - Action: $action, Entry ID: $entryId, Method: " . $_SERVER['REQUEST_METHOD']);
+
         switch ($action) {
             case 'create':
                 require_once __DIR__ . '/views/journal/create.php';
@@ -106,10 +109,18 @@ switch ($page) {
                 break;
 
             case 'delete':
+                error_log("Delete action called with entry ID: $entryId");
                 $journalController->delete($entryId);
                 break;
 
             case 'list':
+                require_once __DIR__ . '/views/journal/list.php';
+                break;
+
+            case 'calendar':
+                require_once __DIR__ . '/views/journal/calendar.php';
+                break;
+
             default:
                 require_once __DIR__ . '/views/journal/list.php';
                 break;
@@ -119,6 +130,43 @@ switch ($page) {
     // Dashboard route
     case 'dashboard':
         require_once __DIR__ . '/views/dashboard.php';
+        break;
+
+    // Mood tracker route
+    case 'mood':
+        $action = $_GET['action'] ?? 'track';
+        switch ($action) {
+            case 'track':
+                require_once __DIR__ . '/views/mood/track.php';
+                break;
+            case 'history':
+                require_once __DIR__ . '/views/mood/history.php';
+                break;
+            case 'stats':
+                require_once __DIR__ . '/views/mood/stats.php';
+                break;
+            default:
+                require_once __DIR__ . '/views/mood/track.php';
+                break;
+        }
+        break;
+
+    // Calendar route
+    case 'calendar':
+        require_once __DIR__ . '/views/journal/calendar.php';
+        break;
+
+    // Static pages routes
+    case 'help':
+        require_once __DIR__ . '/views/static/help.php';
+        break;
+
+    case 'terms':
+        require_once __DIR__ . '/views/static/terms.php';
+        break;
+
+    case 'privacy':
+        require_once __DIR__ . '/views/static/privacy.php';
         break;
 
     // Profile route

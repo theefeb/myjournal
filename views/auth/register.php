@@ -70,7 +70,3 @@ require_once __DIR__ . '/../../views/partials/header.php';
     </div>
 </div>
 
-<?php
-// Include footer
-require_once __DIR__ . '/../../views/partials/footer.php';
-?>
